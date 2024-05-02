@@ -1,19 +1,21 @@
 """
 Make HTTP requests to the Github API to list, create or delete repositories.
 """
-from pprint import pprint
-import requests
 import os
+from pprint import pprint
+
+import requests
 
 baseurl = "https://api.github.com"
 
 
-def delete_repo(token, owner, repo):
+def delete_repo(token, repo, owner, owner_is_organisation=False):
     """
     Deletes a Github repository.
 
     https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#delete-a-repository
     """
+
     response = requests.delete(url=baseurl + f"/repos/{owner}/{repo}",
                                headers={"Authorization": "Bearer " +
                                         token})
@@ -25,13 +27,42 @@ def delete_repo(token, owner, repo):
         print(f"OK. Github repository '{repo}' deleted.")
 
 
-def create_repo(token, repo, description=None, private=True):
+def create_organization_repo(token, repo, organization, description, private=True):
+    """
+    Create an organization repository
+
+    https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#create-an-organization-repository
+    """
+    url = f"/orgs/{organization}/repos"
+    fullurl = baseurl + url
+    response = requests.post(fullurl,
+                             headers={"Authorization": f"Bearer {token}"},
+                             json={"name": repo,
+                                   "description": description,
+                                   "private": private})
+    print("Create Repository Response:")
+    print("Request URL:", response.url)
+    print("Response Status:", response.status_code)
+    if response.status_code == 201:
+        json_response = response.json()
+        pprint(json_response)
+        clone_url = json_response["clone_url"]
+        print(f"OK. Github repository '{repo}' created.")
+        print(f"Clone-URL: {clone_url}")
+
+
+def create_repo(token, repo, description=None, private=True, organization=None):
     """
     Creates a new repository for the authenticated user.
 
     https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#create-a-repository-for-the-authenticated-user
     """
-    response = requests.post(url=baseurl + f"/user/repos",
+    if organization:
+        url = baseurl + f"/orgs/{organization}/repos"
+    else:
+        url = baseurl + "/user/repos"
+
+    response = requests.post(url,
                              headers={"Authorization": "Bearer " +
                                       token},
                              json={"name": repo,
@@ -48,9 +79,20 @@ def create_repo(token, repo, description=None, private=True):
         print(f"Clone-URL: {clone_url}")
 
 
-def list_repositories(token):
-    response = requests.get(url=baseurl + f"/user/repos",
-                            headers={"Authorization": "Bearer " + token})
+def list_repositories(token, organisation=None):
+    """
+    List repositories for the authenticated user.
+
+    https://docs.github.com/en/rest/repos/repos?apiVersion=2022-11-28#list-repositories-for-the-authenticated-user
+    """
+
+    if organisation:
+        url = baseurl + f"/orgs/{organisation}/repos"
+    else:
+        url = baseurl + "/user/repos"
+
+    response = requests.get(url,
+                            headers={"Authorization": f"Bearer {token}"})
 
     pad = 10
 
@@ -66,19 +108,6 @@ def list_repositories(token):
         print_repo_property(repo, "language")
         print()
 
-
-if __name__ == "__main__":
-
-    # CONFIGURE PERSONAL GITHUB SETTINGS
-
-    # Adjust your Github Personal Access Token
-    token = os.environ["GITHUB_TOKEN"]
-    owner = "...put your Github username here..."
-
-    # MAKE API REQUESTS
-
-    repo = "...put a repository name here..."
-
-    list_repositories(token)
-    # delete_repo(token, owner, repo)
-    # create_repo(token, repo)
+    print("List Repositories Response:")
+    print("Request URL:", response.url)
+    print("Response Status:", response.status_code)
